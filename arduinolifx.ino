@@ -917,51 +917,25 @@ void setLight() {
     int this_hue = map(hue, 0, 65535, 0, 767);
     int this_sat = map(sat, 0, 65535, 0, 255);
     int this_bri = map(bri, 0, 65535, 0, 255);
-
-    if(this_sat>this_bri)
-    {
-      this_bri = this_bri/2;
-    }
-    else
-    {
-      this_bri = (255 + (this_bri - this_sat))/2;
-    }
     
     // if we are setting a "white" colour (kelvin temp)
-//    if (kel > 0 && this_sat < 1) {
-//      // convert kelvin to RGB
-//      rgb kelvin_rgb;
-//      kelvin_rgb = kelvinToRGB(kel);
-//
-//      // convert the RGB into HSV
-//      hsv kelvin_hsv;
-//      kelvin_hsv = rgb2hsv(kelvin_rgb);
-//
-//      // set the new values ready to go to the bulb (brightness does not change, just hue and saturation)
-//      this_hue = map(kelvin_hsv.h, 0, 359, 0, 255);
-//      this_sat = map(kelvin_hsv.s * 1000, 0, 1000, 0, 255); //multiply the sat by 1000 so we can map the percentage value returned by rgb2hsv
-//    }
+    if (kel > 0 && this_sat < 1) {
+      // convert kelvin to RGB
+      rgb kelvin_rgb;
+      kelvin_rgb = kelvinToRGB(kel);
 
-//    HsvColor hsvColor;
-//    hsvColor.h = this_hue;
-//    hsvColor.s = 255;
-//    if(this_sat>this_bri)
-//    {
-//      hsvColor.v = this_bri/2;
-//    }
-//    else
-//    {
-//      hsvColor.v = (255 + (this_bri - this_sat))/2;
-//    }
-//
-//    Serial.println(hsvColor.h, HEX);
-//    Serial.println(hsvColor.s, HEX);
-//    Serial.println(hsvColor.v, HEX);
-//    RgbColor rgbColor = HsvToRgb(hsvColor);
+      // convert the RGB into HSV
+      hsv kelvin_hsv;
+      kelvin_hsv = rgb2hsv(kelvin_rgb);
+
+      // set the new values ready to go to the bulb (brightness does not change, just hue and saturation)
+      this_hue = map(kelvin_hsv.h, 0, 359, 0, 767);
+      this_sat = map(kelvin_hsv.s * 1000, 0, 1000, 0, 255); //multiply the sat by 1000 so we can map the percentage value returned by rgb2hsv
+    }
 
     uint8_t rgbColor[3];
     
-    hue2rgb(this_hue, this_bri, rgbColor);
+    hsb2rgb(this_hue, this_sat, this_bri, rgbColor);
 
     uint8_t r = map(rgbColor[0], 0, 255, 0, 32);
     uint8_t g = map(rgbColor[1], 0, 255, 0, 32);
@@ -988,15 +962,11 @@ void setLight() {
  * rendered as 0.
  *
  *****************************************************************************/
-void hue2rgb(uint16_t index, uint8_t bright, uint8_t color[3])
+void hsb2rgb(uint16_t index, uint8_t sat, uint8_t bright, uint8_t color[3])
 {
-  Serial.print("Hue: ");
-  Serial.println(index, HEX);
-  Serial.print("Bri: ");
-  Serial.println(bright, HEX);
-  
   uint16_t r_temp, g_temp, b_temp;
   uint8_t index_mod;
+  uint8_t inverse_sat = (sat ^ 255);
 
   index = index % 768;
   index_mod = index % 256;
@@ -1029,13 +999,17 @@ void hue2rgb(uint16_t index, uint8_t bright, uint8_t color[3])
     b_temp = 0;
   }
 
+  r_temp = ((r_temp * sat) / 255) + inverse_sat;
+  g_temp = ((g_temp * sat) / 255) + inverse_sat;
+  b_temp = ((b_temp * sat) / 255) + inverse_sat;
+
   r_temp = (r_temp * bright) / 255;
   g_temp = (g_temp * bright) / 255;
-  b_temp = (b_temp * bright) / 255; 
-  
+  b_temp = (b_temp * bright) / 255;
+
   color[0]  = (uint8_t)r_temp;
   color[1]  = (uint8_t)g_temp;
-  color[2] = (uint8_t)b_temp; 
+  color[2] = (uint8_t)b_temp;
 }
 
 
