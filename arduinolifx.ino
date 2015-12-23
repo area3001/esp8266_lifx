@@ -32,11 +32,11 @@
 #include <WiFiManager.h>
 
 #include "lifx.h"
-#include "RGBMoodLifx.h"
+//#include "RGBMoodLifx.h"
 #include "color.h"
 
 // set to 1 to output debug messages (including packet dumps) to serial (38400 baud)
-const boolean DEBUG = 0;
+const boolean DEBUG = 1;
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
@@ -81,7 +81,7 @@ WiFiClient client;
  */
 void configModeCallback () {
   Serial.println("Entered config mode");
-  Serial.println(WiFi.softAPIP());
+  //Serial.println(WiFi.softAPIP());
   led_strip.setPixelColor(0, 255, 0, 0);
   led_strip.show();
 }
@@ -113,17 +113,11 @@ void setup() {
   Serial.begin(115200);
   Serial.println(F("LIFX bulb emulator for Esp8266 starting up..."));
 
-  // LED STRIP: start with color blue
-  led_strip.begin();
-  led_strip.setPixelColor(0, 0, 0, 255);
-  led_strip.show();
-  Serial.println("LEDS initalized");
-
   // WIFI
   WiFiManager wifiManager;
   wifiManager.setDebugOutput(false);
   wifiManager.setAPCallback(configModeCallback);
-
+  
   if (!wifiManager.autoConnect(bulbLabel)) {
     Serial.println("failed to connect and hit timeout");
     //reset and try again, or maybe put it to deep sleep
@@ -131,9 +125,14 @@ void setup() {
     delay(1000);
   }
 
+  led_strip.begin();
+  led_strip.setPixelColor(0, 0, 0, 255);
+  led_strip.show();
+  Serial.println("LEDS initalized");
+  
   //Connecting is succeeded
   connectingSuccess();
-
+ 
   //set mac address
   WiFi.macAddress(mac);
 
@@ -229,6 +228,7 @@ void setup() {
 }
 
 void loop() {
+  ESP.wdtDisable();
   if (led_strip.outputReady ())
   {
     // buffers for receiving and sending data
