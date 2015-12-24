@@ -35,8 +35,16 @@
 //#include "RGBMoodLifx.h"
 #include "color.h"
 
-// set to 1 to output debug messages (including packet dumps) to serial (38400 baud)
-const boolean DEBUG = 1;
+// define to output debug messages (including packet dumps) to serial (38400 baud)
+#define DEBUG
+
+#ifdef DEBUG
+ #define debug_print(x, ...) Serial.print (x, ## __VA_ARGS__)
+ #define debug_println(x, ...) Serial.println (x, ## __VA_ARGS__)
+#else
+ #define debug_print(x, ...)
+ #define debug_println(x, ...)
+#endif
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
@@ -80,8 +88,8 @@ WiFiClient client;
  * Color = All red
  */
 void configModeCallback () {
-  Serial.println("Entered config mode");
-  //Serial.println(WiFi.softAPIP());
+  debug_println("Entered config mode");
+  //debug_println(WiFi.softAPIP());
   led_strip.setPixelColor(0, 255, 0, 0);
   led_strip.show();
 }
@@ -91,7 +99,7 @@ void configModeCallback () {
  * Color = blink green twice
  */
 void connectingSuccess() {
-  Serial.println("connected!");
+  debug_println("connected!");
   Serial.print ("IP address: ");
   Serial.println (WiFi.localIP());
 
@@ -111,7 +119,7 @@ void connectingSuccess() {
 void setup() {
 
   Serial.begin(115200);
-  Serial.println(F("LIFX bulb emulator for Esp8266 starting up..."));
+  debug_println(F("LIFX bulb emulator for Esp8266 starting up..."));
 
   // WIFI
   WiFiManager wifiManager;
@@ -119,21 +127,22 @@ void setup() {
   wifiManager.setAPCallback(configModeCallback);
   
   if (!wifiManager.autoConnect(bulbLabel)) {
-    Serial.println("failed to connect and hit timeout");
+    debug_println("failed to connect and hit timeout");
     //reset and try again, or maybe put it to deep sleep
     ESP.reset();
     delay(1000);
   }
 
+  // LEDS
   led_strip.begin();
   led_strip.setPixelColor(0, 0, 0, 255);
   led_strip.show();
-  Serial.println("LEDS initalized");
+  debug_println("LEDS initalized");
   
-  //Connecting is succeeded
+  // Connecting is succeeded
   connectingSuccess();
  
-  //set mac address
+  // Set mac address
   WiFi.macAddress(mac);
 
   // set up a UDP and TCP port ready for incoming
@@ -144,54 +153,35 @@ void setup() {
   if (EEPROM.read(EEPROM_CONFIG_START) == EEPROM_CONFIG[0]
       && EEPROM.read(EEPROM_CONFIG_START + 1) == EEPROM_CONFIG[1]
       && EEPROM.read(EEPROM_CONFIG_START + 2) == EEPROM_CONFIG[2]) {
-    if (DEBUG) {
-      Serial.println(F("Config exists in EEPROM, reading..."));
-      Serial.print(F("Bulb label: "));
-    }
+    debug_println(F("Config exists in EEPROM, reading..."));
+    debug_print(F("Bulb label: "));
 
     for (int i = 0; i < LifxBulbLabelLength; i++) {
       bulbLabel[i] = EEPROM.read(EEPROM_BULB_LABEL_START + i);
-
-      if (DEBUG) {
-        Serial.print(bulbLabel[i]);
-      }
+      debug_print(bulbLabel[i]);
     }
 
-    if (DEBUG) {
-      Serial.println();
-      Serial.print(F("Bulb tags: "));
-    }
+    debug_println();
+    debug_print(F("Bulb tags: "));
 
     for (int i = 0; i < LifxBulbTagsLength; i++) {
       bulbTags[i] = EEPROM.read(EEPROM_BULB_TAGS_START + i);
-
-      if (DEBUG) {
-        Serial.print(bulbTags[i]);
-      }
+      debug_print(bulbTags[i]);
     }
 
-    if (DEBUG) {
-      Serial.println();
-      Serial.print(F("Bulb tag labels: "));
-    }
+    debug_println();
+    debug_print(F("Bulb tag labels: "));
 
     for (int i = 0; i < LifxBulbTagLabelsLength; i++) {
       bulbTagLabels[i] = EEPROM.read(EEPROM_BULB_TAG_LABELS_START + i);
-
-      if (DEBUG) {
-        Serial.print(bulbTagLabels[i]);
-      }
+      debug_print(bulbTagLabels[i]);
     }
 
-    if (DEBUG) {
-      Serial.println();
-      Serial.println(F("Done reading EEPROM config."));
-    }
+    debug_println();
+    debug_println(F("Done reading EEPROM config."));
   } else {
     // first time sketch has been run, set defaults into EEPROM
-    if (DEBUG) {
-      Serial.println(F("Config does not exist in EEPROM, writing..."));
-    }
+    debug_println(F("Config does not exist in EEPROM, writing..."));
 
     EEPROM.write(EEPROM_CONFIG_START, EEPROM_CONFIG[0]);
     EEPROM.write(EEPROM_CONFIG_START + 1, EEPROM_CONFIG[1]);
@@ -209,26 +199,21 @@ void setup() {
       EEPROM.write(EEPROM_BULB_TAG_LABELS_START + i, bulbTagLabels[i]);
     }
 
-    if (DEBUG) {
-      Serial.println(F("Done writing EEPROM config."));
-    }
+    debug_println(F("Done writing EEPROM config."));
   }
 
-  if (DEBUG) {
-    Serial.println(F("EEPROM dump:"));
-    for (int i = 0; i < 256; i++) {
-      Serial.print(EEPROM.read(i));
-      Serial.print(SPACE);
-    }
-    Serial.println();
+  debug_println(F("EEPROM dump:"));
+  for (int i = 0; i < 256; i++) {
+    debug_print(EEPROM.read(i));
+    debug_print(SPACE);
   }
+  debug_println();
 
   // set the bulb based on the initial colors
   setLight();
 }
 
 void loop() {
-  ESP.wdtDisable();
   if (led_strip.outputReady ())
   {
     // buffers for receiving and sending data
@@ -244,19 +229,17 @@ void loop() {
         packetSize++;
       }
 
-      if (DEBUG) {
-        Serial.print(F("-TCP "));
-        for (int i = 0; i < LifxPacketSize; i++) {
-          Serial.print(PacketBuffer[i], HEX);
-          Serial.print(SPACE);
-        }
-
-        for (int i = LifxPacketSize; i < packetSize; i++) {
-          Serial.print(PacketBuffer[i], HEX);
-          Serial.print(SPACE);
-        }
-        Serial.println();
+      debug_print(F("-TCP "));
+      for (int i = 0; i < LifxPacketSize; i++) {
+        debug_print(PacketBuffer[i], HEX);
+        debug_print(SPACE);
       }
+
+      for (int i = LifxPacketSize; i < packetSize; i++) {
+        debug_print(PacketBuffer[i], HEX);
+        debug_print(SPACE);
+      }
+      debug_println();
 
       // push the data into the LifxPacket structure
       LifxPacket request;
@@ -271,19 +254,17 @@ void loop() {
     if (packetSize) {
       Udp.read(PacketBuffer, 128);
 
-      if (DEBUG) {
-        Serial.print(F("-UDP "));
-        for (int i = 0; i < LifxPacketSize; i++) {
-          Serial.print(PacketBuffer[i], HEX);
-          Serial.print(SPACE);
-        }
-
-        for (int i = LifxPacketSize; i < packetSize; i++) {
-          Serial.print(PacketBuffer[i], HEX);
-          Serial.print(SPACE);
-        }
-        Serial.println();
+      debug_print(F("-UDP "));
+      for (int i = 0; i < LifxPacketSize; i++) {
+        debug_print(PacketBuffer[i], HEX);
+        debug_print(SPACE);
       }
+
+      for (int i = LifxPacketSize; i < packetSize; i++) {
+        debug_print(PacketBuffer[i], HEX);
+        debug_print(SPACE);
+      }
+      debug_println();
 
       // push the data into the LifxPacket structure
       LifxPacket request;
@@ -331,10 +312,8 @@ void processRequest(byte *packetBuffer, int packetSize, LifxPacket &request) {
 }
 
 void handleRequest(LifxPacket &request) {
-  if (DEBUG) {
-    Serial.print(F("  Received packet type "));
-    Serial.println(request.packet_type, HEX);
-  }
+  debug_print(F("  Received packet type "));
+  debug_println(request.packet_type, HEX);
 
   LifxPacket response;
   switch (request.packet_type) {
@@ -386,10 +365,10 @@ void handleRequest(LifxPacket &request) {
         kel = word(request.data[8], request.data[7]);
 
         for(int i=0; i<request.data_size; i++){
-          Serial.print(request.data[i], HEX);
-          Serial.print(SPACE);
+          debug_print(request.data[i], HEX);
+          debug_print(SPACE);
         }
-        Serial.println();
+        debug_println();
 
         setLight();
       }
@@ -657,9 +636,7 @@ void handleRequest(LifxPacket &request) {
 
     default:
       {
-        if (DEBUG) {
-          Serial.println(F("  Unknown packet type, ignoring"));
-        }
+          debug_println(F("  Unknown packet type, ignoring"));
       }
       break;
   }
@@ -678,11 +655,9 @@ unsigned int sendUDPPacket(LifxPacket &pkt) {
   IPAddress remote_addr(Udp.remoteIP());
   IPAddress broadcast_addr(remote_addr[0], remote_addr[1], remote_addr[2], 255);
 
-  if (DEBUG) {
-    Serial.print(F("+UDP "));
-    printLifxPacket(pkt);
-    Serial.println();
-  }
+  debug_print(F("+UDP "));
+  printLifxPacket(pkt);
+  debug_println();
 
   Udp.beginPacket(broadcast_addr, Udp.remotePort());
 
@@ -748,11 +723,9 @@ unsigned int sendUDPPacket(LifxPacket &pkt) {
 
 unsigned int sendTCPPacket(LifxPacket &pkt) {
 
-  if (DEBUG) {
-    Serial.print(F("+TCP "));
-    printLifxPacket(pkt);
-    Serial.println();
-  }
+  debug_print(F("+TCP "));
+  printLifxPacket(pkt);
+  debug_println();
 
   byte TCPBuffer[128]; //buffer to hold outgoing packet,
   int byteCount = 0;
@@ -820,103 +793,101 @@ unsigned int sendTCPPacket(LifxPacket &pkt) {
 // print out a LifxPacket data structure as a series of hex bytes - used for DEBUG
 void printLifxPacket(LifxPacket &pkt) {
   // size
-  Serial.print(lowByte(LifxPacketSize + pkt.data_size), HEX);
-  Serial.print(SPACE);
-  Serial.print(highByte(LifxPacketSize + pkt.data_size), HEX);
-  Serial.print(SPACE);
+  debug_print(lowByte(LifxPacketSize + pkt.data_size), HEX);
+  debug_print(SPACE);
+  debug_print(highByte(LifxPacketSize + pkt.data_size), HEX);
+  debug_print(SPACE);
 
   // protocol
-  Serial.print(lowByte(pkt.protocol), HEX);
-  Serial.print(SPACE);
-  Serial.print(highByte(pkt.protocol), HEX);
-  Serial.print(SPACE);
+  debug_print(lowByte(pkt.protocol), HEX);
+  debug_print(SPACE);
+  debug_print(highByte(pkt.protocol), HEX);
+  debug_print(SPACE);
 
   // reserved1
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
 
   // bulbAddress mac address
   for (int i = 0; i < sizeof(mac); i++) {
-    Serial.print(lowByte(mac[i]), HEX);
-    Serial.print(SPACE);
+    debug_print(lowByte(mac[i]), HEX);
+    debug_print(SPACE);
   }
 
   // reserved2
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
 
   // site mac address
   for (int i = 0; i < sizeof(site_mac); i++) {
-    Serial.print(lowByte(site_mac[i]), HEX);
-    Serial.print(SPACE);
+    debug_print(lowByte(site_mac[i]), HEX);
+    debug_print(SPACE);
   }
 
   // reserved3
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
 
   // timestamp
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
 
   //packet type
-  Serial.print(lowByte(pkt.packet_type), HEX);
-  Serial.print(SPACE);
-  Serial.print(highByte(pkt.packet_type), HEX);
-  Serial.print(SPACE);
+  debug_print(lowByte(pkt.packet_type), HEX);
+  debug_print(SPACE);
+  debug_print(highByte(pkt.packet_type), HEX);
+  debug_print(SPACE);
 
   // reserved4
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
-  Serial.print(lowByte(0x00), HEX);
-  Serial.print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
+  debug_print(lowByte(0x00), HEX);
+  debug_print(SPACE);
 
   //data
   for (int i = 0; i < pkt.data_size; i++) {
-    Serial.print(pkt.data[i], HEX);
-    Serial.print(SPACE);
+    debug_print(pkt.data[i], HEX);
+    debug_print(SPACE);
   }
 }
 
 void setLight() {
-  if (DEBUG) {
-    Serial.print(F("Set light - "));
-    Serial.print(F("hue: "));
-    Serial.print(hue);
-    Serial.print(F(", sat: "));
-    Serial.print(sat);
-    Serial.print(F(", bri: "));
-    Serial.print(bri);
-    Serial.print(F(", kel: "));
-    Serial.print(kel);
-    Serial.print(F(", power: "));
-    Serial.print(power_status);
-    Serial.println(power_status ? " (on)" : "(off)");
-  }
+  debug_print(F("Set light - "));
+  debug_print(F("hue: "));
+  debug_print(hue);
+  debug_print(F(", sat: "));
+  debug_print(sat);
+  debug_print(F(", bri: "));
+  debug_print(bri);
+  debug_print(F(", kel: "));
+  debug_print(kel);
+  debug_print(F(", power: "));
+  debug_print(power_status);
+  debug_println(power_status ? " (on)" : "(off)");
 
   if (power_status) {
     int this_hue = map(hue, 0, 65535, 0, 767);
