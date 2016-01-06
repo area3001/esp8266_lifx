@@ -1,0 +1,1 @@
+{"name":"Esp8266 lifx","tagline":"LIFX emulator with the esp8266","body":"# esp8266_lifx\r\nLIFX emulator with the esp8266\r\n\r\nBased on the code of Kayne Richens: https://github.com/kayno/arduinolifx\r\n\r\nTodo:\r\n * make the color transitions fade","google":"UA-35123769-3","note":"Don't delete this file! It's used internally to help with page regeneration."}
