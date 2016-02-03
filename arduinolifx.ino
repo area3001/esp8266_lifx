@@ -89,9 +89,7 @@ WiFiClient client;
  */
 void configModeCallback () {
   debug_println("Entered config mode");
-  //debug_println(WiFi.softAPIP());
-  led_strip.setPixelColor(0, 255, 0, 0);
-  led_strip.show();
+  debug_println(WiFi.softAPIP());
 }
 
 /*
@@ -636,7 +634,8 @@ void handleRequest(LifxPacket &request) {
 
     default:
       {
-          debug_println(F("  Unknown packet type, ignoring"));
+          debug_print(F("Unknown packet type: "));
+          debug_println(request.packet_type, DEC);
       }
       break;
   }
