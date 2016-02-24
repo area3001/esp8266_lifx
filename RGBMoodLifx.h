@@ -24,13 +24,15 @@ class RGBMoodLifx {
       FIRE_MODE
     };
 
-    RGBMoodLifx(uint8_t = 0, uint8_t = 0, uint8_t = 0); // New instance with output pin specified.
+    RGBMoodLifx(uint8_t = 0, uint8_t = 0, uint8_t = 0, uint8_t = 0, uint16_t = 0); // New instance with output pin specified.
     void setHSB(uint16_t, uint16_t, uint16_t);     // Set a fixed color from HSB color space.
     void setRGB(uint16_t, uint16_t, uint16_t);     // Set a fixed color from RGB color space.
     void setRGB(uint32_t); // Using Color class.
     void fadeHSB(uint16_t, uint16_t, uint16_t, bool = true);    // Fade to a new color (given in HSB color space).
     void fadeRGB(uint16_t, uint16_t, uint16_t);    // Fade to a new color (given in RGB color space).
     void fadeRGB(uint32_t); // Using Color class.
+    void fadeKelvin(uint16_t kelvin, uint16_t brightness); // Fade to Kelvin color
+    void setKelvin(uint16_t kelvin, uint16_t brightness); // Set to Kelvin Color
     void tick();                    // Update colors if needed. (call this in the loop function)
     void hsb2rgb(uint16_t, uint16_t, uint16_t, uint16_t&, uint16_t&, uint16_t&); // Used internally to convert HSB to RGB
     bool isFading() {return fading_;}     // True we are currently fading to a new color.
@@ -44,11 +46,15 @@ class RGBMoodLifx {
     uint16_t blue() {return current_RGB_color_[2];}               // The current blue color.
   private:
     Modes mode_;
-    uint8_t pins_[3];           // The pins for color output. (PWM)
+    uint8_t pins_[4];           // The pins for color output. (PWM - RGBW)
+    uint16_t led_kelvin_;
     uint16_t current_RGB_color_[3];
     uint16_t current_HSB_color_[3];
-    uint16_t initial_color_[3]; // Used when fading.
+    uint16_t current_Kelvin_color_;
+    uint16_t initial_color_[3];     // Used when fading.
+    uint16_t initial_Kelvin_color_; // Used when fading.
     uint16_t target_color_[3];  // Used when fading.
+    uint16_t target_Kelvin_color_;
     uint16_t fading_step_;      // Current step of the fading.
     uint16_t fading_max_steps_; // The total number of steps when fading.
     uint16_t fading_step_time_; // The number of ms between two variation of color when fading.
@@ -58,6 +64,8 @@ class RGBMoodLifx {
     bool fading_;               // Are we fading now ?
     unsigned long last_update_; // Last time we did something.
     void fade();                // Used internaly to fade
+    void setKelvinValue(uint16_t k, uint16_t b); // Used internaly to determine Kelvin value
+    void setTargetKelvinValue(uint16_t k, uint16_t b); // Used internaly to determine Kelvin value
 };
 
 class Color {

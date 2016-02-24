@@ -83,7 +83,7 @@ WiFiServer TcpServer(LifxPort);
 WiFiClient client;
 
 // Leds
-RGBMoodLifx LIFXBulb(PIN_LED_R, PIN_LED_G, PIN_LED_B);
+RGBMoodLifx LIFXBulb(PIN_LED_R, PIN_LED_G, PIN_LED_B, PIN_LED_W, 3000);
 
 /*
  * If no knwon network was found, change to access point mode.
@@ -899,20 +899,12 @@ void setLight() {
 
     // if we are setting a "white" colour (kelvin temp)
     if(kel > 0 && this_sat < 1) {
-      // convert kelvin to RGB
-      rgb kelvin_rgb;
-      kelvin_rgb = kelvinToRGB(kel);
-
-      // convert the RGB into HSV
-      hsv kelvin_hsv;
-      kelvin_hsv = rgb2hsv(kelvin_rgb);
-
-      // set the new values ready to go to the bulb (brightness does not change, just hue and saturation)
-      this_hue = kelvin_hsv.h;
-      this_sat = map(kelvin_hsv.s*1000, 0, 1000, 0, 255); //multiply the sat by 1000 so we can map the percentage value returned by rgb2hsv
+      LIFXBulb.fadeKelvin(kel, this_bri);
     }
-
-    LIFXBulb.fadeHSB(this_hue, this_sat, this_bri);
+    else
+    {
+      LIFXBulb.fadeHSB(this_hue, this_sat, this_bri);
+    }
   } 
   else {
     LIFXBulb.fadeHSB(0, 0, 0);
