@@ -27,12 +27,11 @@
 #include <ESP8266WiFi.h>
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
-#include <LPD6803.h>
 #include <WiFiUDP.h>
 #include <WiFiManager.h>
 
 #include "lifx.h"
-//#include "RGBMoodLifx.h"
+#include "RGBMoodLifx.h"
 #include "color.h"
 
 // define to output debug messages (including packet dumps) to serial (38400 baud)
@@ -55,11 +54,11 @@ byte site_mac[] = {
   0x4c, 0x49, 0x46, 0x58, 0x56, 0x32
 }; // spells out "LIFXV2" - version 2 of the app changes the site address to this...
 
-// ldp6803
-#define LED_COUNT 1
-#define PIN_DATA  13
-#define PIN_CLOCK 14
-LPD6803 led_strip = LPD6803(LED_COUNT, PIN_DATA, PIN_CLOCK);
+// LED pins
+#define PIN_LED_R 4
+#define PIN_LED_G 14
+#define PIN_LED_B 12
+#define PIN_LED_W 13
 
 // label (name) for this bulb
 char bulbLabel[LifxBulbLabelLength] = "LED lamp";
@@ -83,6 +82,9 @@ WiFiUDP Udp;
 WiFiServer TcpServer(LifxPort);
 WiFiClient client;
 
+// Leds
+RGBMoodLifx LIFXBulb(PIN_LED_R, PIN_LED_G, PIN_LED_B);
+
 /*
  * If no knwon network was found, change to access point mode.
  * Color = All red
@@ -101,23 +103,33 @@ void connectingSuccess() {
   Serial.print ("IP address: ");
   Serial.println (WiFi.localIP());
 
-  led_strip.setPixelColor (0, 0, 255, 0);
-  led_strip.show ();
+  // ESP is connected, flash green
+  LIFXBulb.setRGB(0, 255, 0);
   delay(500);
-  led_strip.setPixelColor (0, 0, 0, 0);
-  led_strip.show ();
+  LIFXBulb.setRGB(0, 0, 0);
   delay(500);
-  led_strip.setPixelColor (0, 0, 255, 0);
-  led_strip.show ();
+  LIFXBulb.setRGB(0, 255, 0);
   delay(500);
-  led_strip.setPixelColor (0, 0, 0, 0);
-  led_strip.show ();
+  LIFXBulb.setRGB(0, 0, 0);
 }
 
 void setup() {
 
   Serial.begin(115200);
   debug_println(F("LIFX bulb emulator for Esp8266 starting up..."));
+
+  // LEDS
+  pinMode(PIN_LED_R, OUTPUT); 
+  pinMode(PIN_LED_G, OUTPUT); 
+  pinMode(PIN_LED_B, OUTPUT);
+  pinMode(PIN_LED_W, OUTPUT);  
+  analogWriteRange(255);
+  LIFXBulb.setFadingSteps(20);
+  LIFXBulb.setFadingSpeed(20);
+  debug_println("LEDS initalized");
+
+  // set initial color to red until the ESP is connected
+  LIFXBulb.setRGB(255, 0, 0);
 
   // WIFI
   WiFiManager wifiManager;
@@ -131,12 +143,6 @@ void setup() {
     delay(1000);
   }
 
-  // LEDS
-  led_strip.begin();
-  led_strip.setPixelColor(0, 0, 0, 255);
-  led_strip.show();
-  debug_println("LEDS initalized");
-  
   // Connecting is succeeded
   connectingSuccess();
  
@@ -212,68 +218,66 @@ void setup() {
 }
 
 void loop() {
-  if (led_strip.outputReady ())
-  {
-    // buffers for receiving and sending data
-    byte PacketBuffer[128]; //buffer to hold incoming packet,
+  LIFXBulb.tick();
+  
+  // buffers for receiving and sending data
+  byte PacketBuffer[128]; //buffer to hold incoming packet,
 
-    client = TcpServer.available();
-    if (client == true) {
-      // read incoming data
-      int packetSize = 0;
-      while (client.available()) {
-        byte b = client.read();
-        PacketBuffer[packetSize] = b;
-        packetSize++;
-      }
-
-      debug_print(F("-TCP "));
-      for (int i = 0; i < LifxPacketSize; i++) {
-        debug_print(PacketBuffer[i], HEX);
-        debug_print(SPACE);
-      }
-
-      for (int i = LifxPacketSize; i < packetSize; i++) {
-        debug_print(PacketBuffer[i], HEX);
-        debug_print(SPACE);
-      }
-      debug_println();
-
-      // push the data into the LifxPacket structure
-      LifxPacket request;
-      processRequest(PacketBuffer, packetSize, request);
-
-      //respond to the request
-      handleRequest(request);
+  client = TcpServer.available();
+  if (client == true) {
+    // read incoming data
+    int packetSize = 0;
+    while (client.available()) {
+      byte b = client.read();
+      PacketBuffer[packetSize] = b;
+      packetSize++;
     }
 
-    // if there's UDP data available, read a packet
-    int packetSize = Udp.parsePacket();
-    if (packetSize) {
-      Udp.read(PacketBuffer, 128);
-
-      debug_print(F("-UDP "));
-      for (int i = 0; i < LifxPacketSize; i++) {
-        debug_print(PacketBuffer[i], HEX);
-        debug_print(SPACE);
-      }
-
-      for (int i = LifxPacketSize; i < packetSize; i++) {
-        debug_print(PacketBuffer[i], HEX);
-        debug_print(SPACE);
-      }
-      debug_println();
-
-      // push the data into the LifxPacket structure
-      LifxPacket request;
-      processRequest(PacketBuffer, sizeof(PacketBuffer), request);
-
-      //respond to the request
-      handleRequest(request);
-
+    debug_print(F("-TCP "));
+    for (int i = 0; i < LifxPacketSize; i++) {
+      debug_print(PacketBuffer[i], HEX);
+      debug_print(SPACE);
     }
+
+    for (int i = LifxPacketSize; i < packetSize; i++) {
+      debug_print(PacketBuffer[i], HEX);
+      debug_print(SPACE);
+    }
+    debug_println();
+
+    // push the data into the LifxPacket structure
+    LifxPacket request;
+    processRequest(PacketBuffer, packetSize, request);
+
+    //respond to the request
+    handleRequest(request);
   }
 
+  // if there's UDP data available, read a packet
+  int packetSize = Udp.parsePacket();
+  if (packetSize) {
+    Udp.read(PacketBuffer, 128);
+
+    debug_print(F("-UDP "));
+    for (int i = 0; i < LifxPacketSize; i++) {
+      debug_print(PacketBuffer[i], HEX);
+      debug_print(SPACE);
+    }
+
+    for (int i = LifxPacketSize; i < packetSize; i++) {
+      debug_print(PacketBuffer[i], HEX);
+      debug_print(SPACE);
+    }
+    debug_println();
+
+    // push the data into the LifxPacket structure
+    LifxPacket request;
+    processRequest(PacketBuffer, sizeof(PacketBuffer), request);
+
+    //respond to the request
+    handleRequest(request);
+
+  }
   delay (0);
 }
 
@@ -888,13 +892,13 @@ void setLight() {
   debug_print(power_status);
   debug_println(power_status ? " (on)" : "(off)");
 
-  if (power_status) {
-    int this_hue = map(hue, 0, 65535, 0, 767);
+  if(power_status) {
+    int this_hue = map(hue, 0, 65535, 0, 359);
     int this_sat = map(sat, 0, 65535, 0, 255);
     int this_bri = map(bri, 0, 65535, 0, 255);
-    
+
     // if we are setting a "white" colour (kelvin temp)
-    if (kel > 0 && this_sat < 1) {
+    if(kel > 0 && this_sat < 1) {
       // convert kelvin to RGB
       rgb kelvin_rgb;
       kelvin_rgb = kelvinToRGB(kel);
@@ -904,86 +908,15 @@ void setLight() {
       kelvin_hsv = rgb2hsv(kelvin_rgb);
 
       // set the new values ready to go to the bulb (brightness does not change, just hue and saturation)
-      this_hue = map(kelvin_hsv.h, 0, 359, 0, 767);
-      this_sat = map(kelvin_hsv.s * 1000, 0, 1000, 0, 255); //multiply the sat by 1000 so we can map the percentage value returned by rgb2hsv
+      this_hue = kelvin_hsv.h;
+      this_sat = map(kelvin_hsv.s*1000, 0, 1000, 0, 255); //multiply the sat by 1000 so we can map the percentage value returned by rgb2hsv
     }
 
-    uint8_t rgbColor[3];
-    hsb2rgb(this_hue, this_sat, this_bri, rgbColor);
-
-    uint8_t r = map(rgbColor[0], 0, 255, 0, 32);
-    uint8_t g = map(rgbColor[1], 0, 255, 0, 32);
-    uint8_t b = map(rgbColor[2], 0, 255, 0, 32);
-    
-    // LIFXBulb.fadeHSB(this_hue, this_sat, this_bri);
-    led_strip.setPixelColor (0, r, g, b);
-  }
+    LIFXBulb.fadeHSB(this_hue, this_sat, this_bri);
+  } 
   else {
-
-    // LIFXBulb.fadeHSB(0, 0, 0);
-    led_strip.setPixelColor (0, 0, 0, 0);
+    LIFXBulb.fadeHSB(0, 0, 0);
   }
-  led_strip.show ();
-}
-
-/******************************************************************************
- * accepts hue, saturation and brightness values and outputs three 8-bit color
- * values in an array (color[])
- *
- * saturation (sat) and brightness (bright) are 8-bit values.
- *
- * hue (index) is a value between 0 and 767. hue values out of range are
- * rendered as 0.
- *
- *****************************************************************************/
-void hsb2rgb(uint16_t index, uint8_t sat, uint8_t bright, uint8_t color[3])
-{
-  uint16_t r_temp, g_temp, b_temp;
-  uint8_t index_mod;
-  uint8_t inverse_sat = (sat ^ 255);
-
-  index = index % 768;
-  index_mod = index % 256;
-
-  if (index < 256)
-  {
-    r_temp = index_mod ^ 255;
-    g_temp = index_mod;
-    b_temp = 0;
-  }
-
-  else if (index < 512)
-  {
-    r_temp = 0;
-    g_temp = index_mod ^ 255;
-    b_temp = index_mod;
-  }
-
-  else if ( index < 768)
-  {
-    r_temp = index_mod;
-    g_temp = 0;
-    b_temp = index_mod ^ 255;
-  }
-
-  else
-  {
-    r_temp = 0;
-    g_temp = 0;
-    b_temp = 0;
-  }
-
-  r_temp = ((r_temp * sat) / 255) + inverse_sat;
-  g_temp = ((g_temp * sat) / 255) + inverse_sat;
-  b_temp = ((b_temp * sat) / 255) + inverse_sat;
-
-  r_temp = (r_temp * bright) / 255;
-  g_temp = (g_temp * bright) / 255;
-  b_temp = (b_temp * bright) / 255;
-
-  color[0]  = (uint8_t)r_temp;
-  color[1]  = (uint8_t)g_temp;
-  color[2] = (uint8_t)b_temp;
 }
 
 
