@@ -104,13 +104,17 @@ void connectingSuccess() {
   Serial.println (WiFi.localIP());
 
   // ESP is connected, flash green
-  LIFXBulb.setRGB(0, 255, 0);
+  LIFXBulb.setRGBW(0, 255, 0, 0);
+  LIFXBulb.tick();
   delay(500);
-  LIFXBulb.setRGB(0, 0, 0);
+  LIFXBulb.setRGBW(0, 0, 0, 0);
+  LIFXBulb.tick();
   delay(500);
-  LIFXBulb.setRGB(0, 255, 0);
+  LIFXBulb.setRGBW(0, 255, 0, 0);
+  LIFXBulb.tick();
   delay(500);
-  LIFXBulb.setRGB(0, 0, 0);
+  LIFXBulb.setRGBW(0, 0, 0, 0);
+  LIFXBulb.tick();
 }
 
 void setup() {
@@ -119,17 +123,18 @@ void setup() {
   debug_println(F("LIFX bulb emulator for Esp8266 starting up..."));
 
   // LEDS
-  pinMode(PIN_LED_R, OUTPUT); 
-  pinMode(PIN_LED_G, OUTPUT); 
+  pinMode(PIN_LED_R, OUTPUT);
+  pinMode(PIN_LED_G, OUTPUT);
   pinMode(PIN_LED_B, OUTPUT);
-  pinMode(PIN_LED_W, OUTPUT);  
+  pinMode(PIN_LED_W, OUTPUT);
   analogWriteRange(255);
   LIFXBulb.setFadingSteps(20);
   LIFXBulb.setFadingSpeed(20);
   debug_println("LEDS initalized");
 
   // set initial color to red until the ESP is connected
-  LIFXBulb.setRGB(255, 0, 0);
+  LIFXBulb.setRGBW(255, 0, 0, 0);
+  LIFXBulb.tick();
 
   // WIFI
   WiFiManager wifiManager;

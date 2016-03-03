@@ -12,6 +12,7 @@
 #ifndef GUARD_RGB
 #define GUARD_RGB
 #include "Arduino.h"
+
 class RGBMoodLifx {
   public:
     enum Modes {
@@ -26,35 +27,35 @@ class RGBMoodLifx {
 
     RGBMoodLifx(uint8_t = 0, uint8_t = 0, uint8_t = 0, uint8_t = 0, uint16_t = 0); // New instance with output pin specified.
     void setHSB(uint16_t, uint16_t, uint16_t);     // Set a fixed color from HSB color space.
-    void setRGB(uint16_t, uint16_t, uint16_t);     // Set a fixed color from RGB color space.
-    void setRGB(uint32_t); // Using Color class.
+    void setRGBW(uint16_t, uint16_t, uint16_t, uint16_t);     // Set a fixed color from RGBW color space.
+    void setRGBW(uint32_t); // Using Color class.
     void fadeHSB(uint16_t, uint16_t, uint16_t, bool = true);    // Fade to a new color (given in HSB color space).
-    void fadeRGB(uint16_t, uint16_t, uint16_t);    // Fade to a new color (given in RGB color space).
-    void fadeRGB(uint32_t); // Using Color class.
+    void fadeRGBW(uint16_t, uint16_t, uint16_t, uint16_t);    // Fade to a new color (given in RGB color space).
+    void fadeRGBW(uint32_t); // Using Color class.
     void fadeKelvin(uint16_t kelvin, uint16_t brightness); // Fade to Kelvin color
     void setKelvin(uint16_t kelvin, uint16_t brightness); // Set to Kelvin Color
     void tick();                    // Update colors if needed. (call this in the loop function)
     void hsb2rgb(uint16_t, uint16_t, uint16_t, uint16_t&, uint16_t&, uint16_t&); // Used internally to convert HSB to RGB
+    void hsb2rgbw(uint16_t hue, uint16_t sat, uint16_t val, uint16_t& red, uint16_t& green, uint16_t& blue, uint16_t& white); // Used internally to convert HSB to RGBW   
+    void kelvinToRGBW(uint16_t kelvin, uint16_t brightness, uint16_t& red, uint16_t& green, uint16_t& blue, uint16_t& white);
     bool isFading() {return fading_;}     // True we are currently fading to a new color.
     bool isStill() {return not fading_;}  // True if we are not fading to a new color.
     void setMode(Modes m) {mode_ = m;}  // Change the mode.
     void setHoldingTime(uint16_t t) {holding_color_ = t;}     // How many ms do we keep a color before fading to a new one.
     void setFadingSpeed(uint16_t t) {fading_step_time_ = t;}  // How many ms between each step when fading.
     void setFadingSteps(uint16_t t) {fading_max_steps_ = t;}  // How many steps for fading from a color to another.
-    uint16_t red() {return current_RGB_color_[0];}                // The current red color.
-    uint16_t green() {return current_RGB_color_[1];}              // The current green color.
-    uint16_t blue() {return current_RGB_color_[2];}               // The current blue color.
+    uint16_t red() {return current_RGBW_color_[0];}                // The current red color.
+    uint16_t green() {return current_RGBW_color_[1];}              // The current green color.
+    uint16_t blue() {return current_RGBW_color_[2];}               // The current blue color.
+    uint16_t white() {return current_RGBW_color_[3];}               // The current blue color.
   private:
     Modes mode_;
     uint8_t pins_[4];           // The pins for color output. (PWM - RGBW)
     uint16_t led_kelvin_;
-    uint16_t current_RGB_color_[3];
+    uint16_t current_RGBW_color_[4];
     uint16_t current_HSB_color_[3];
-    uint16_t current_Kelvin_color_;
-    uint16_t initial_color_[3];     // Used when fading.
-    uint16_t initial_Kelvin_color_; // Used when fading.
-    uint16_t target_color_[3];  // Used when fading.
-    uint16_t target_Kelvin_color_;
+    uint16_t initial_color_[4];     // Used when fading.
+    uint16_t target_color_[4];  // Used when fading.
     uint16_t fading_step_;      // Current step of the fading.
     uint16_t fading_max_steps_; // The total number of steps when fading.
     uint16_t fading_step_time_; // The number of ms between two variation of color when fading.
@@ -67,16 +68,4 @@ class RGBMoodLifx {
     void setKelvinValue(uint16_t k, uint16_t b); // Used internaly to determine Kelvin value
     void setTargetKelvinValue(uint16_t k, uint16_t b); // Used internaly to determine Kelvin value
 };
-
-class Color {
-  public:
-    static const uint32_t RED = 0xFF0000;
-    static const uint32_t GREEN = 0x00FF00;
-    static const uint32_t BLUE = 0x0000FF;
-    static const uint32_t AQUAMARINE = 0x7FFFD4;
-    static const uint32_t AIRFORCEBLUE = 0x5D8AA8;
-    static const uint32_t AMARANTH = 0xE52B50;
-    static const uint32_t ASPARAGUS = 0x87A96B;
-};
-
 #endif

@@ -1,5 +1,6 @@
 #include "RGBMoodLifx.h"
 
+
 // Dim curve
 // Used to make 'dimming' look more natural. 
 uint8_t dc[256] = {
@@ -35,13 +36,13 @@ RGBMoodLifx::RGBMoodLifx(uint8_t rp, uint8_t gp, uint8_t bp, uint8_t wp, uint16_
   pins_[2] = bp;
   pins_[3] = wp;
   led_kelvin_ = kelvin;
-  current_RGB_color_[0] = 0;
-  current_RGB_color_[1] = 0;
-  current_RGB_color_[2] = 0;
+  current_RGBW_color_[0] = 0;
+  current_RGBW_color_[1] = 0;
+  current_RGBW_color_[2] = 0;
+  current_RGBW_color_[3] = 0;
   current_HSB_color_[0] = 0;
   current_HSB_color_[1] = 0;
   current_HSB_color_[2] = 0;
-  current_Kelvin_color_ = 0;
   fading_max_steps_ = 200;
   fading_step_time_ = 50;
   holding_color_ = 1000;
@@ -59,8 +60,7 @@ void RGBMoodLifx::setHSB(uint16_t h, uint16_t s, uint16_t b) {
   current_HSB_color_[0] = constrain(h % 360, 0, 360);
   current_HSB_color_[1] = constrain(s, 0, 255);
   current_HSB_color_[2] = constrain(b, 0, 255);
-  hsb2rgb(current_HSB_color_[0], current_HSB_color_[1], current_HSB_color_[2], current_RGB_color_[0], current_RGB_color_[1], current_RGB_color_[2]);
-  current_Kelvin_color_ = 0;
+  hsb2rgbw(current_HSB_color_[0], current_HSB_color_[1], current_HSB_color_[2], current_RGBW_color_[0], current_RGBW_color_[1], current_RGBW_color_[2], current_RGBW_color_[3]);
   fading_ = false;
 }
 
@@ -70,16 +70,16 @@ Change instantly the LED colors.
 @param g The green (0..255)
 @param b The blue (0..255)
 */
-void RGBMoodLifx::setRGB(uint16_t r, uint16_t g, uint16_t b) {
-  current_RGB_color_[0] = constrain(r, 0, 255);
-  current_RGB_color_[1] = constrain(g, 0, 255);
-  current_RGB_color_[2] = constrain(b, 0, 255);
-  current_Kelvin_color_ = 0;
+void RGBMoodLifx::setRGBW(uint16_t r, uint16_t g, uint16_t b, uint16_t w) {
+  current_RGBW_color_[0] = constrain(r, 0, 255);
+  current_RGBW_color_[1] = constrain(g, 0, 255);
+  current_RGBW_color_[2] = constrain(b, 0, 255);
+  current_RGBW_color_[3] = constrain(w, 0, 255);
   fading_ = false;
 }
 
-void RGBMoodLifx::setRGB(uint32_t color) {
-  setRGB((color & 0xFF0000) >> 16, (color & 0x00FF00) >> 8, color & 0x0000FF);
+void RGBMoodLifx::setRGBW(uint32_t color) {
+  setRGBW((color & 0xFF000000) >> 24, (color & 0x00FF0000) >> 16, (color & 0x0000FF00) >> 8, color & 0x000000FF);
 }
 
 /*
@@ -93,7 +93,6 @@ void RGBMoodLifx::fadeHSB(uint16_t h, uint16_t s, uint16_t b, bool shortest) {
   initial_color_[0] = current_HSB_color_[0];
   initial_color_[1] = current_HSB_color_[1];
   initial_color_[2] = current_HSB_color_[2];
-  initial_Kelvin_color_ = current_Kelvin_color_;
   if (shortest) {
     h = h % 360;
     // We take the shortest way! (0 == 360)
@@ -112,7 +111,6 @@ void RGBMoodLifx::fadeHSB(uint16_t h, uint16_t s, uint16_t b, bool shortest) {
   target_color_[0] = h;
   target_color_[1] = s;
   target_color_[2] = b;
-  target_Kelvin_color_ = 0;
   fading_ = true;
   fading_step_ = 0;
   fading_in_hsb_ = true;
@@ -124,22 +122,22 @@ Fade from current color to the one provided.
 @param g The green (0..255)
 @param b The blue (0..255)
 */
-void RGBMoodLifx::fadeRGB(uint16_t r, uint16_t g, uint16_t b) {
-  initial_color_[0] = current_RGB_color_[0];
-  initial_color_[1] = current_RGB_color_[1];
-  initial_color_[2] = current_RGB_color_[2];
-  initial_Kelvin_color_ = current_Kelvin_color_;
+void RGBMoodLifx::fadeRGBW(uint16_t r, uint16_t g, uint16_t b, uint16_t w) {
+  initial_color_[0] = current_RGBW_color_[0];
+  initial_color_[1] = current_RGBW_color_[1];
+  initial_color_[2] = current_RGBW_color_[2];
+  initial_color_[3] = current_RGBW_color_[3];
   target_color_[0] = r;
   target_color_[1] = g;
   target_color_[2] = b;
-  target_Kelvin_color_ = 0;
+  target_color_[3] = w;
   fading_ = true;
   fading_step_ = 0;
   fading_in_hsb_ = false;
 }
 
-void RGBMoodLifx::fadeRGB(uint32_t color) {
-  fadeRGB((color & 0xFF0000) >> 16, (color & 0x00FF00) >> 8, color & 0x0000FF);
+void RGBMoodLifx::fadeRGBW(uint32_t color) {
+  fadeRGBW((color & 0xFF000000) >> 24, (color & 0x00FF0000) >> 16, (color & 0x0000FF00) >> 8, color & 0x000000FF);
 }
 
 /*
@@ -147,11 +145,12 @@ Fade from current color to the kelvin color .
 @param kelvin (2500..9000)
 */
 void RGBMoodLifx::fadeKelvin(uint16_t kelvin, uint16_t brightness) {
-  initial_color_[0] = current_RGB_color_[0];
-  initial_color_[1] = current_RGB_color_[1];
-  initial_color_[2] = current_RGB_color_[2];
-  initial_Kelvin_color_ = current_Kelvin_color_;
-  setTargetKelvinValue(kelvin, brightness);
+  initial_color_[0] = current_RGBW_color_[0];
+  initial_color_[1] = current_RGBW_color_[1];
+  initial_color_[2] = current_RGBW_color_[2];
+  initial_color_[3] = current_RGBW_color_[3];
+  //setTargetKelvinValue(kelvin, brightness);
+  kelvinToRGBW(kelvin, brightness, target_color_[0], target_color_[1], target_color_[2], target_color_[3]);
   fading_ = true;
   fading_step_ = 0;
   fading_in_hsb_ = false;
@@ -163,6 +162,8 @@ Set the current color to the kelvin color .
 */
 void RGBMoodLifx::setKelvin(uint16_t kelvin, uint16_t brightness) {
   setKelvinValue(kelvin, brightness);
+  //setTargetKelvinValue(kelvin, brightness);
+  kelvinToRGBW(kelvin, brightness, current_RGBW_color_[0], current_RGBW_color_[1], current_RGBW_color_[2], current_RGBW_color_[3]);
   fading_ = false;
 }
 
@@ -217,10 +218,10 @@ void RGBMoodLifx::tick() {
   }
   //if (pins_[0] > 0) {
   if (pins_[0] >= 0) { // this is the modification for LIFX - allows 0 to be written for each pin to power off the LED
-    analogWrite(pins_[0], current_RGB_color_[0]);
-    analogWrite(pins_[1], current_RGB_color_[1]);
-    analogWrite(pins_[2], current_RGB_color_[2]);
-    analogWrite(pins_[3], current_Kelvin_color_);
+    analogWrite(pins_[0], current_RGBW_color_[0]);
+    analogWrite(pins_[1], current_RGBW_color_[1]);
+    analogWrite(pins_[2], current_RGBW_color_[2]);
+    analogWrite(pins_[3], current_RGBW_color_[3]);
   }
 }
 
@@ -290,6 +291,126 @@ void RGBMoodLifx::hsb2rgb(uint16_t hue, uint16_t sat, uint16_t val, uint16_t& re
   }
 }
 
+/*
+Convert a HSB color to RGBW
+This function is used internally but may be used by the end user too. (public).
+@param h The hue (0..65535) (Will be % 360)
+@param s The saturation value (0..255)
+@param b The brightness (0..255)
+*/
+void RGBMoodLifx::hsb2rgbw(uint16_t hue, uint16_t sat, uint16_t val, uint16_t& red, uint16_t& green, uint16_t& blue, uint16_t& white) {
+  val = dc[val];
+  sat = 255-dc[255-sat];
+  hue = hue % 360;
+
+  int r;
+  int g;
+  int b;
+  int base;
+
+  if (sat == 0) { // Acromatic color (gray). Hue doesn't mind.
+    red   = val;
+    green = val;
+    blue  = val;
+    white = val;
+  } else  {
+    base = ((255 - sat) * val)>>8;
+    switch(hue/60) {
+      case 0:
+        r = val;
+        g = (((val-base)*hue)/60)+base;
+        b = base;
+        break;
+  
+      case 1:
+        r = (((val-base)*(60-(hue%60)))/60)+base;
+        g = val;
+        b = base;
+        break;
+  
+      case 2:
+        r = base;
+        g = val;
+        b = (((val-base)*(hue%60))/60)+base;
+        break;
+
+      case 3:
+        r = base;
+        g = (((val-base)*(60-(hue%60)))/60)+base;
+        b = val;
+        break;
+  
+      case 4:
+        r = (((val-base)*(hue%60))/60)+base;
+        g = base;
+        b = val;
+        break;
+  
+      case 5:
+        r = val;
+        g = base;
+        b = (((val-base)*(60-(hue%60)))/60)+base;
+        break;
+    }  
+    red   = r;
+    green = g;
+    blue  = b; 
+    white = ((255-sat)*val)/255;
+  }
+}
+
+// Convert Kelvin to RGBW value
+void RGBMoodLifx::kelvinToRGBW(uint16_t kelvin, uint16_t brightness, uint16_t& red, uint16_t& green, uint16_t& blue, uint16_t& white) {
+  brightness = dc[brightness];
+  long temperature = kelvin / 100;
+
+  if(temperature <= 66) {
+    red = 255;
+  } 
+  else {
+    red = temperature - 60;
+    red = 329.698727446 * pow(red, -0.1332047592);
+    if(red < 0) red = 0;
+    if(red > 255) red = 255;
+  }
+
+  if(temperature <= 66) {
+    green = temperature;
+    green = 99.4708025861 * log(green) - 161.1195681661;
+    if(green < 0) green = 0;
+    if(green > 255) green = 255;
+  } 
+  else {
+    green = temperature - 60;
+    green = 288.1221695283 * pow(green, -0.0755148492);
+    if(green < 0) green = 0;
+    if(green > 255) green = 255;
+  }
+
+  if(temperature >= 66) {
+    blue = 255;
+  } 
+  else {
+    if(temperature <= 19) {
+      blue = 0;
+    } 
+    else {
+      blue = temperature - 10;
+      blue = 138.5177312231 * log(blue) - 305.0447927307;
+      if(blue < 0) blue = 0;
+      if(blue > 255) blue = 255;
+    }
+  }
+
+  white = 255;
+
+  // adjust brightness
+  red = map(red, 0, 255, 0, brightness);
+  green = map(green, 0, 255, 0, brightness);
+  blue = map(blue, 0, 255, 0, brightness);
+  white = map(white, 0, 255, 0, brightness);
+}
+
 /*  Private functions
 ------------------------------------------------------------ */
 
@@ -297,19 +418,18 @@ void RGBMoodLifx::hsb2rgb(uint16_t hue, uint16_t sat, uint16_t val, uint16_t& re
 This function is used internaly to do the fading between colors.
 */
 void RGBMoodLifx::fade()
-{
-  current_Kelvin_color_ = (uint16_t)(initial_Kelvin_color_ - (fading_step_*((initial_Kelvin_color_-(float)target_Kelvin_color_)/fading_max_steps_)));
-  
+{ 
   if (fading_in_hsb_) {
     current_HSB_color_[0] = (uint16_t)(initial_color_[0] - (fading_step_*((initial_color_[0]-(float)target_color_[0])/fading_max_steps_)));
     current_HSB_color_[1] = (uint16_t)(initial_color_[1] - (fading_step_*((initial_color_[1]-(float)target_color_[1])/fading_max_steps_)));
     current_HSB_color_[2] = (uint16_t)(initial_color_[2] - (fading_step_*((initial_color_[2]-(float)target_color_[2])/fading_max_steps_)));
-    hsb2rgb(current_HSB_color_[0], current_HSB_color_[1], current_HSB_color_[2], current_RGB_color_[0], current_RGB_color_[1], current_RGB_color_[2]);
+    hsb2rgbw(current_HSB_color_[0], current_HSB_color_[1], current_HSB_color_[2], current_RGBW_color_[0], current_RGBW_color_[1], current_RGBW_color_[2], current_RGBW_color_[3]);
   }
   else {
-    current_RGB_color_[0] = (uint16_t)(initial_color_[0] - (fading_step_*((initial_color_[0]-(float)target_color_[0])/fading_max_steps_)));
-    current_RGB_color_[1] = (uint16_t)(initial_color_[1] - (fading_step_*((initial_color_[1]-(float)target_color_[1])/fading_max_steps_)));
-    current_RGB_color_[2] = (uint16_t)(initial_color_[2] - (fading_step_*((initial_color_[2]-(float)target_color_[2])/fading_max_steps_)));
+    current_RGBW_color_[0] = (uint16_t)(initial_color_[0] - (fading_step_*((initial_color_[0]-(float)target_color_[0])/fading_max_steps_)));
+    current_RGBW_color_[1] = (uint16_t)(initial_color_[1] - (fading_step_*((initial_color_[1]-(float)target_color_[1])/fading_max_steps_)));
+    current_RGBW_color_[2] = (uint16_t)(initial_color_[2] - (fading_step_*((initial_color_[2]-(float)target_color_[2])/fading_max_steps_)));
+    current_RGBW_color_[3] = (uint16_t)(initial_color_[3] - (fading_step_*((initial_color_[3]-(float)target_color_[3])/fading_max_steps_)));
   }
 }
 
@@ -320,17 +440,17 @@ void RGBMoodLifx::setKelvinValue(uint16_t kelvin, uint16_t brightness)
   
   if(change < 0)
   {
-    current_RGB_color_[0] = -change/(red_factor);
-    current_RGB_color_[1] = -change/(green_factor);
-    current_RGB_color_[2] = 0;
-    current_Kelvin_color_ = (255 + (change/white_factor));
+    current_RGBW_color_[0] = (uint16_t)(-change/(red_factor*brightness));
+    current_RGBW_color_[1] = (uint16_t)(-change/(green_factor*brightness));
+    current_RGBW_color_[2] = 0;
+    current_RGBW_color_[3] = (uint16_t)((255 + (change/white_factor))/brightness);
   }
   else
   {
-    current_RGB_color_[0] = 0;
-    current_RGB_color_[1] = 0;
-    current_RGB_color_[2] = change/(blue_factor*brightness);
-    current_Kelvin_color_ = (255 - (change/white_factor));
+    current_RGBW_color_[0] = 0;
+    current_RGBW_color_[1] = 0;
+    current_RGBW_color_[2] = (uint16_t)(change/(blue_factor*brightness));
+    current_RGBW_color_[3] = (uint16_t)((255 - (change/white_factor))/brightness);
   }
 }
 
@@ -341,17 +461,17 @@ void RGBMoodLifx::setTargetKelvinValue(uint16_t kelvin, uint16_t brightness)
   
   if(change < 0)
   {
-    target_color_[0] = -change/(red_factor);
-    target_color_[1] = -change/(green_factor);
+    target_color_[0] = (uint16_t)(-change/(red_factor*brightness));
+    target_color_[1] = (uint16_t)(-change/(green_factor*brightness));
     target_color_[2] = 0;
-    target_Kelvin_color_ = (255 + (change/white_factor));
+    target_color_[3] = (uint16_t)((255 + (change/white_factor))/brightness);
   }
   else
   {
     target_color_[0] = 0;
     target_color_[1] = 0;
-    target_color_[2] = change/(blue_factor);
-    target_Kelvin_color_ = (255 - (change/white_factor));
+    target_color_[2] = (uint16_t)(change/(blue_factor*brightness));
+    target_color_[3] = (uint16_t)((255 - (change/white_factor))/brightness);
   }
 }
 
