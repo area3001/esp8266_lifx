@@ -35,7 +35,7 @@
 #include "color.h"
 
 // define to output debug messages (including packet dumps) to serial (38400 baud)
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
  #define debug_print(x, ...) Serial.print (x, ## __VA_ARGS__)
@@ -290,7 +290,7 @@ void processRequest(byte *packetBuffer, int packetSize, LifxPacket &request) {
 
   request.size        = packetBuffer[0] + (packetBuffer[1] << 8); //little endian
   request.protocol    = packetBuffer[2] + (packetBuffer[3] << 8); //little endian
-  request.reserved1   = packetBuffer[4] + packetBuffer[5] + packetBuffer[6] + packetBuffer[7];
+  request.reserved1   = (packetBuffer[4] << 24) + (packetBuffer[5] << 16) + (packetBuffer[6] << 8) + packetBuffer[7];
 
   byte bulbAddress[] = {
     packetBuffer[8], packetBuffer[9], packetBuffer[10], packetBuffer[11], packetBuffer[12], packetBuffer[13]
@@ -323,6 +323,7 @@ void handleRequest(LifxPacket &request) {
   debug_println(request.packet_type, HEX);
 
   LifxPacket response;
+  response.reserved1 = request.reserved1;
   switch (request.packet_type) {
 
     case GET_PAN_GATEWAY:
@@ -678,10 +679,11 @@ unsigned int sendUDPPacket(LifxPacket &pkt) {
   Udp.write(highByte(pkt.protocol));
 
   // reserved1
-  Udp.write(lowByte(0x00));
-  Udp.write(lowByte(0x00));
-  Udp.write(lowByte(0x00));
-  Udp.write(lowByte(0x00));
+  Udp.write(lowByte(pkt.reserved1 >> 24));
+  Udp.write(lowByte(pkt.reserved1 >> 16));
+  Udp.write(lowByte(pkt.reserved1 >> 8));
+  Udp.write(lowByte(pkt.reserved1));
+  
 
   // bulbAddress mac address
   for (int i = 0; i < sizeof(mac); i++) {
@@ -747,10 +749,10 @@ unsigned int sendTCPPacket(LifxPacket &pkt) {
   TCPBuffer[byteCount++] = highByte(pkt.protocol);
 
   // reserved1
-  TCPBuffer[byteCount++] = lowByte(0x00);
-  TCPBuffer[byteCount++] = lowByte(0x00);
-  TCPBuffer[byteCount++] = lowByte(0x00);
-  TCPBuffer[byteCount++] = lowByte(0x00);
+  TCPBuffer[byteCount++] = (lowByte(pkt.reserved1 >> 24));
+  TCPBuffer[byteCount++] = (lowByte(pkt.reserved1 >> 16));
+  TCPBuffer[byteCount++] = (lowByte(pkt.reserved1 >> 8));
+  TCPBuffer[byteCount++] = (lowByte(pkt.reserved1));
 
   // bulbAddress mac address
   for (int i = 0; i < sizeof(mac); i++) {
@@ -908,11 +910,11 @@ void setLight() {
     }
     else
     {
-      LIFXBulb.fadeHSB(this_hue, this_sat, this_bri);
+      LIFXBulb.fadeHSB(this_hue, this_sat, this_bri, true);
     }
   } 
   else {
-    LIFXBulb.fadeHSB(0, 0, 0);
+    LIFXBulb.fadeHSB(0, 0, 0, true);
   }
 }
 
