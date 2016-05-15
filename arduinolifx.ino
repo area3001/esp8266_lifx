@@ -87,9 +87,8 @@ RGBMoodLifx LIFXBulb(PIN_LED_R, PIN_LED_G, PIN_LED_B, PIN_LED_W, 3000);
 
 /*
  * If no knwon network was found, change to access point mode.
- * Color = All red
  */
-void configModeCallback () {
+void configModeCallback (WiFiManager *myWiFiManager) {
   debug_println("Entered config mode");
   debug_println(WiFi.softAPIP());
 }
@@ -900,7 +899,7 @@ void setLight() {
   debug_println(power_status ? " (on)" : "(off)");
 
   if(power_status) {
-    int this_hue = map(hue, 0, 65535, 0, 359);
+    int this_hue = map(hue, 200, 65535, 0, 359);
     int this_sat = map(sat, 0, 65535, 0, 255);
     int this_bri = map(bri, 0, 65535, 0, 255);
 
